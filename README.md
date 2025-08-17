@@ -221,6 +221,184 @@ const chatResult = await chatComplete(messages, {
 - **错误处理**：完善的错误包装和人性化提示
 - **测试覆盖**：包含单元测试和集成测试，确保代码质量
 
+## 语音识别（IAT）
+
+本项目已集成讯飞星火中英语音识别服务，支持实时语音转写功能。
+
+### 环境变量配置
+
+在 `.env.local` 文件中配置以下变量：
+
+```bash
+# 语音识别 IAT 配置
+IAT_API_KEY=your_iat_api_key_here      # 语音识别 APIKey
+IAT_API_SECRET=your_iat_api_secret_here # 语音识别 APISecret
+IAT_APP_ID=your_iat_app_id_here        # 可选，部分接口需要 APPID
+IAT_TIMEOUT_MS=20000                   # 可选，请求超时时间（毫秒），默认 20000
+IAT_LOG_LEVEL=info                     # 可选，日志级别：info|error|silent
+```
+
+**安全提示**：所有 API 密钥仅在 Node.js 服务端使用，不会暴露给浏览器端或记录在日志中。
+
+### 本地演示与测试
+
+```bash
+# 语音识别演示（需要配置完整的环境变量）
+npm run try:iat
+
+# 运行 IAT 相关测试
+npm run test:iat
+
+# 运行所有测试
+npm run test
+
+# 监听模式运行测试
+npm run test:watch
+```
+
+### 使用示例
+
+#### 直接调用 IAT 客户端
+
+```typescript
+import { transcribe, IATClient } from '@/lib/asr/iatClient';
+
+// 使用便捷函数
+const result = await transcribe(audioBuffer, {
+  audioParams: {
+    sampleRate: 16000,
+    encoding: 'raw'
+  },
+  languageParams: {
+    language: 'zh_cn', // 中文识别
+    domain: 'iat'
+  },
+  punc: 1 // 添加标点符号
+});
+
+console.log('识别结果:', result.text);
+
+// 使用客户端类
+const client = new IATClient();
+const result = await client.transcribe({
+  audio: audioBuffer, // Buffer | base64字符串 | 文件路径
+  audioParams: {
+    sampleRate: 16000,
+    encoding: 'raw'
+  },
+  languageParams: {
+    language: 'en_us', // 英文识别
+    domain: 'iat'
+  }
+});
+```
+
+#### 通过 API 路由调用
+
+```typescript
+// POST /api/asr/recognize
+const response = await fetch('/api/asr/recognize', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    audio: audioBase64, // Base64 编码的音频数据
+    audioParams: {
+      sampleRate: 16000,
+      encoding: 'raw'
+    },
+    languageParams: {
+      language: 'zh_cn',
+      accent: 'mandarin'
+    },
+    addPunctuation: true
+  })
+});
+
+const result = await response.json();
+if (result.success) {
+  console.log('识别文本:', result.text);
+  console.log('处理时间:', result.processingTime, 'ms');
+} else {
+  console.error('识别失败:', result.error);
+}
+```
+
+### 支持的音频格式
+
+- **编码格式**：raw, speex, speex-wb
+- **采样率**：8000Hz, 16000Hz
+- **声道数**：单声道 (1)
+- **位深度**：16bit
+- **推荐格式**：16kHz, 16bit, 单声道 PCM
+
+### 支持的语言
+
+- **中文**：`zh_cn` (普通话、粤语)
+- **英文**：`en_us`
+- **方言支持**：`mandarin`, `cantonese` (仅中文时有效)
+
+### 常见错误与排查
+
+#### 鉴权失败 (401)
+- 检查 `IAT_API_KEY` 和 `IAT_API_SECRET` 是否正确
+- 确认账户状态是否正常
+- 验证 API 服务是否可用
+
+#### 配额不足 (429)
+- 检查账户余额或点数
+- 查看 API 调用频率限制
+- 考虑升级服务套餐
+
+#### 网络错误 (502)
+- 检查网络连接状况
+- 确认防火墙设置
+- 重试操作或稍后再试
+
+#### 请求超时 (408)
+- 增加 `IAT_TIMEOUT_MS` 配置值
+- 检查网络延迟情况
+- 缩短音频长度
+
+#### 音频格式错误 (400)
+- 确认音频采样率为 8000Hz 或 16000Hz
+- 检查音频编码格式是否支持
+- 验证音频数据是否完整
+
+### 音频数据处理
+
+支持多种音频输入格式：
+
+```typescript
+// 1. 直接使用 Buffer
+const audioBuffer = fs.readFileSync('audio.wav');
+const result = await transcribe(audioBuffer);
+
+// 2. Base64 字符串
+const audioBase64 = audioBuffer.toString('base64');
+const result = await transcribe(audioBase64);
+
+// 3. 文件路径
+const result = await transcribe('./audio/sample.wav');
+```
+
+### 性能优化建议
+
+1. **音频预处理**：确保音频格式符合要求，避免在线转换
+2. **分段处理**：长音频建议分段处理，每段不超过60秒
+3. **并发控制**：避免同时发起过多识别请求
+4. **缓存结果**：对于重复音频可以缓存识别结果
+5. **错误重试**：网络错误时实现指数退避重试机制
+
+### 技术实现细节
+
+- **WebSocket 连接**：使用讯飞 IAT WebSocket API 实现实时识别
+- **鉴权机制**：HMAC-SHA256 签名算法，符合讯飞 API 规范
+- **数据分帧**：音频数据按 40ms (1280字节) 分帧传输
+- **Node.js 专用**：所有识别逻辑仅在服务端运行，保护 API 密钥安全
+- **完整测试**：包含单元测试、集成测试和条件跳过机制
+
 ## 开发指南
 
 ### 代码规范
