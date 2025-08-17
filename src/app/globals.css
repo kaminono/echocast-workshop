@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 全局基础样式 */
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
+  }
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+}
+
+/* 自定义组件样式 */
+@layer components {
+  .nav-link {
+    @apply px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200;
+  }
+  
+  .nav-link-active {
+    @apply bg-primary-600 text-white;
+  }
+  
+  .nav-link-inactive {
+    @apply text-gray-300 hover:bg-gray-700 hover:text-white;
+  }
+}

@@ -1,0 +1,9 @@
+---
+description: 可访问性及样式一致性约束（focus-visible 与 Tailwind 用法）
+alwaysApply: false
+---
+- 所有交互控件（按钮、链接、图标）必须具备 `focus-visible` 可视焦点样式。
+- 不低于 Tailwind `gray-600` 的文字应用于白底以确保可读性。
+- 推荐 Tailwind 类范例：
+  - `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/30`
+- 禁止使用内联样式替代 Tailwind 类。

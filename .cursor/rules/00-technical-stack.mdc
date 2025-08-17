@@ -1,0 +1,11 @@
+---
+description: 限制技术栈为项目初始化设计（Next.js/Tailwind/Zustand/idb）
+globs:
+alwaysApply: true
+---
+
+- 本项目使用 **Next.js 15** (App Router, TypeScript)，不引入其他前端框架。
+- 全局样式仅使用 **Tailwind CSS**，禁止引入 Ant Design、Material-UI 等库。
+- 全局状态如需共享使用 **Zustand**，禁止使用 Redux。
+- 本地存储使用 **IndexedDB**，通过 `src/lib/idb.ts` 封装，所有数据访问必须使用该封装。
+- 不缓存、调用或泄露任何 API Key， `.env.example` 中仅作说明。

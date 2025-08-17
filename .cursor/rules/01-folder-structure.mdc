@@ -1,0 +1,10 @@
+---
+alwaysApply: true
+---
+- 页面统一放置在 `src/app/`，使用 App Router。
+- 通用 UI 组件放在 `src/components/`，每个组件一个 .tsx 文件。
+- 工具库与存储逻辑放在 `src/lib/`，例如 idb 封装。
+- 领域类型定义集中放在 `src/types/domain.ts`。
+- 示例引用：
+  - `@src/lib/idb.ts`
+  - `@src/types/domain.ts`

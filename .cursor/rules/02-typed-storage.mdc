@@ -1,0 +1,11 @@
+---
+description: IndexedDB 存储类型与结构要求（Ideas / Scripts / Locales）
+alwaysApply: false
+---
+- 存储结构应包含以下 object stores：
+  - `ideas`：存储 `Idea` 类型（id, title, summary?, createdAt, starred?, source）
+  - `scripts`：存储 `ScriptDraft` 类型（id, ideaId, title, bullets[], status, version, updatedAt）
+  - `locales`：存储 `LocaleVariant` 类型（id, scriptId, lang, title, bullets[], createdAt）
+- 所有数据库访问必须通过 `src/lib/idb.ts` 导出的函数实现（如 `addIdea`, `listIdeas` 等）。
+- 示例引用：
+  - `@src/types/domain.ts`
