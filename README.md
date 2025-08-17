@@ -89,6 +89,110 @@ npm run build
 npm start
 ```
 
+## AI 接入（OpenAI 兼容）
+
+本项目已集成星火 X1 大模型，采用 OpenAI 兼容接口，支持聊天对话功能。
+
+### 环境配置
+
+项目仅需配置一个环境变量：
+
+```bash
+# .env.local 文件中配置
+OPENAI_API_KEY=your_api_password
+```
+
+其中 `your_api_password` 是您的星火 X1 API 密钥。
+
+### 本地运行与测试
+
+```bash
+# 测试 AI 接口连通性
+npm run try:x1
+
+# 运行所有测试
+npm run test
+
+# 监听模式运行测试
+npm run test:watch
+```
+
+### 使用示例
+
+```typescript
+import { simpleChat, chatComplete } from '@src/lib/ai/x1Chat';
+
+// 简单对话
+const result = await simpleChat('你好，请介绍一下自己');
+console.log(result.text); // AI 的回复内容
+
+// 带配置的对话
+const result = await simpleChat(
+  '请简短回复',
+  '你是一个友善的助手',
+  {
+    temperature: 0.7,
+    maxTokens: 100,
+    user: 'user-123'
+  }
+);
+
+// 流式响应（实时获取回复）
+const streamResult = await simpleChat(
+  '请详细解释什么是人工智能',
+  undefined,
+  {
+    stream: true,
+    user: 'stream-user'
+  }
+);
+console.log(streamResult.text); // 完整回复
+console.log(streamResult.reasoningContent); // 思考过程（X1 特有）
+
+// 多轮对话
+const messages = [
+  { role: 'user', content: '你好' },
+  { role: 'assistant', content: '您好！有什么可以帮助您的吗？' },
+  { role: 'user', content: '请介绍一下星火大模型' }
+];
+const chatResult = await chatComplete(messages, {
+  temperature: 0.8,
+  maxTokens: 500
+});
+```
+
+### 常见问题排查
+
+#### 鉴权失败
+- 检查 `.env.local` 文件是否存在
+- 确认 `OPENAI_API_KEY` 配置正确
+- 验证 API 密钥是否有效
+
+#### 请求超时
+- 检查网络连接
+- 确认防火墙设置
+- 可能需要重试请求
+
+#### 限流错误
+- 检查 API 调用频率
+- 确认账户配额充足
+- 适当增加请求间隔
+
+#### 服务端错误 (5xx)
+- 稍后重试
+- 检查 API 服务状态
+- 联系技术支持
+
+### 技术说明
+
+- **仅 Node.js 环境**：AI 相关代码只在服务端运行，确保 API 密钥安全
+- **OpenAI 兼容**：使用标准 OpenAI SDK，便于后续切换模型
+- **流式响应支持**：支持实时流式回复，提升用户体验
+- **思考过程展示**：X1 模型独有的思考过程可视化
+- **用户追踪**：支持 user 参数进行请求跟踪和统计
+- **错误处理**：完善的错误包装和人性化提示
+- **测试覆盖**：包含单元测试和集成测试，确保代码质量
+
 ## 开发指南
 
 ### 代码规范
