@@ -5,15 +5,9 @@
  * 1. Ideas - 创意点子数据
  * 2. Scripts - 文案草稿数据  
  * 3. Locales - 多语种版本数据
- * 
- * 功能规划：
- * - 数据库初始化与版本管理
- * - CRUD 操作封装
- * - 数据导入导出
- * - 离线数据同步支持
- * 
- * TODO: 后续实现具体的数据库操作方法
  */
+
+import type { Idea, ScriptDraft, LocaleVariant } from '@/types/domain'
 
 // 数据库配置
 export const DB_CONFIG = {
@@ -31,49 +25,317 @@ let dbInstance: IDBDatabase | null = null
 
 /**
  * 初始化 IndexedDB 数据库
- * TODO: 实现数据库创建与表结构定义
  */
 export async function initDatabase(): Promise<IDBDatabase> {
-  // 实现数据库初始化逻辑
-  throw new Error('initDatabase 方法待实现')
+  if (dbInstance) {
+    return dbInstance
+  }
+
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_CONFIG.name, DB_CONFIG.version)
+
+    request.onerror = () => {
+      reject(new Error('无法打开数据库'))
+    }
+
+    request.onsuccess = () => {
+      dbInstance = request.result
+      resolve(dbInstance)
+    }
+
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result
+
+      // 创建 ideas 对象存储
+      if (!db.objectStoreNames.contains(DB_CONFIG.stores.ideas)) {
+        const ideasStore = db.createObjectStore(DB_CONFIG.stores.ideas, { keyPath: 'id' })
+        ideasStore.createIndex('createdAt', 'createdAt', { unique: false })
+        ideasStore.createIndex('source', 'source', { unique: false })
+        ideasStore.createIndex('starred', 'starred', { unique: false })
+      }
+
+      // 创建 scripts 对象存储
+      if (!db.objectStoreNames.contains(DB_CONFIG.stores.scripts)) {
+        const scriptsStore = db.createObjectStore(DB_CONFIG.stores.scripts, { keyPath: 'id' })
+        scriptsStore.createIndex('ideaId', 'ideaId', { unique: false })
+        scriptsStore.createIndex('status', 'status', { unique: false })
+        scriptsStore.createIndex('createdAt', 'createdAt', { unique: false })
+      }
+
+      // 创建 locales 对象存储
+      if (!db.objectStoreNames.contains(DB_CONFIG.stores.locales)) {
+        const localesStore = db.createObjectStore(DB_CONFIG.stores.locales, { keyPath: 'id' })
+        localesStore.createIndex('scriptId', 'scriptId', { unique: false })
+        localesStore.createIndex('locale', 'locale', { unique: false })
+        localesStore.createIndex('createdAt', 'createdAt', { unique: false })
+      }
+    }
+  })
 }
 
 /**
- * Ideas 数据操作类
- * TODO: 实现创意数据的增删改查
+ * 获取数据库实例
  */
-export class IdeasStore {
-  // TODO: 实现创意数据 CRUD 操作
+async function getDatabase(): Promise<IDBDatabase> {
+  if (!dbInstance) {
+    await initDatabase()
+  }
+  return dbInstance!
+}
+
+// ========== Ideas 操作方法 ==========
+
+/**
+ * 添加新的创意
+ */
+export async function addIdea(idea: Omit<Idea, 'id' | 'createdAt' | 'updatedAt'>): Promise<Idea> {
+  const db = await getDatabase()
+  const transaction = db.transaction([DB_CONFIG.stores.ideas], 'readwrite')
+  const store = transaction.objectStore(DB_CONFIG.stores.ideas)
+
+  const newIdea: Idea = {
+    ...idea,
+    id: crypto.randomUUID(),
+    createdAt: new Date(),
+    updatedAt: new Date()
+  }
+
+  return new Promise((resolve, reject) => {
+    const request = store.add(newIdea)
+    
+    request.onsuccess = () => resolve(newIdea)
+    request.onerror = () => reject(new Error('添加创意失败'))
+  })
 }
 
 /**
- * Scripts 数据操作类  
- * TODO: 实现文案草稿的版本管理与操作
+ * 获取所有创意列表
  */
-export class ScriptsStore {
-  // TODO: 实现文案数据 CRUD 操作
+export async function listIdeas(): Promise<Idea[]> {
+  const db = await getDatabase()
+  const transaction = db.transaction([DB_CONFIG.stores.ideas], 'readonly')
+  const store = transaction.objectStore(DB_CONFIG.stores.ideas)
+  const index = store.index('createdAt')
+
+  return new Promise((resolve, reject) => {
+    const request = index.getAll()
+    
+    request.onsuccess = () => {
+      // 按创建时间倒序排列
+      const ideas = request.result.sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
+      resolve(ideas)
+    }
+    request.onerror = () => reject(new Error('获取创意列表失败'))
+  })
 }
 
 /**
- * Locales 数据操作类
- * TODO: 实现多语种版本数据管理
+ * 根据 ID 获取创意
  */
-export class LocalesStore {
-  // TODO: 实现多语种数据 CRUD 操作
+export async function getIdea(id: string): Promise<Idea | null> {
+  const db = await getDatabase()
+  const transaction = db.transaction([DB_CONFIG.stores.ideas], 'readonly')
+  const store = transaction.objectStore(DB_CONFIG.stores.ideas)
+
+  return new Promise((resolve, reject) => {
+    const request = store.get(id)
+    
+    request.onsuccess = () => resolve(request.result || null)
+    request.onerror = () => reject(new Error('获取创意失败'))
+  })
 }
+
+/**
+ * 更新创意
+ */
+export async function updateIdea(id: string, updates: Partial<Omit<Idea, 'id' | 'createdAt'>>): Promise<Idea> {
+  const db = await getDatabase()
+  const transaction = db.transaction([DB_CONFIG.stores.ideas], 'readwrite')
+  const store = transaction.objectStore(DB_CONFIG.stores.ideas)
+
+  return new Promise((resolve, reject) => {
+    const getRequest = store.get(id)
+    
+    getRequest.onsuccess = () => {
+      const existingIdea = getRequest.result
+      if (!existingIdea) {
+        reject(new Error('创意不存在'))
+        return
+      }
+
+      const updatedIdea: Idea = {
+        ...existingIdea,
+        ...updates,
+        updatedAt: new Date()
+      }
+
+      const putRequest = store.put(updatedIdea)
+      putRequest.onsuccess = () => resolve(updatedIdea)
+      putRequest.onerror = () => reject(new Error('更新创意失败'))
+    }
+    
+    getRequest.onerror = () => reject(new Error('获取创意失败'))
+  })
+}
+
+/**
+ * 删除创意
+ */
+export async function deleteIdea(id: string): Promise<void> {
+  const db = await getDatabase()
+  const transaction = db.transaction([DB_CONFIG.stores.ideas], 'readwrite')
+  const store = transaction.objectStore(DB_CONFIG.stores.ideas)
+
+  return new Promise((resolve, reject) => {
+    const request = store.delete(id)
+    
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(new Error('删除创意失败'))
+  })
+}
+
+// ========== Scripts 操作方法 ==========
+
+/**
+ * 添加文案草稿
+ */
+export async function addScript(script: Omit<ScriptDraft, 'id' | 'createdAt' | 'updatedAt'>): Promise<ScriptDraft> {
+  const db = await getDatabase()
+  const transaction = db.transaction([DB_CONFIG.stores.scripts], 'readwrite')
+  const store = transaction.objectStore(DB_CONFIG.stores.scripts)
+
+  const newScript: ScriptDraft = {
+    ...script,
+    id: crypto.randomUUID(),
+    createdAt: new Date(),
+    updatedAt: new Date()
+  }
+
+  return new Promise((resolve, reject) => {
+    const request = store.add(newScript)
+    
+    request.onsuccess = () => resolve(newScript)
+    request.onerror = () => reject(new Error('添加文案失败'))
+  })
+}
+
+/**
+ * 获取文案列表
+ */
+export async function listScripts(): Promise<ScriptDraft[]> {
+  const db = await getDatabase()
+  const transaction = db.transaction([DB_CONFIG.stores.scripts], 'readonly')
+  const store = transaction.objectStore(DB_CONFIG.stores.scripts)
+
+  return new Promise((resolve, reject) => {
+    const request = store.getAll()
+    
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(new Error('获取文案列表失败'))
+  })
+}
+
+// ========== Locales 操作方法 ==========
+
+/**
+ * 添加本地化版本
+ */
+export async function addLocale(locale: Omit<LocaleVariant, 'id' | 'createdAt' | 'updatedAt'>): Promise<LocaleVariant> {
+  const db = await getDatabase()
+  const transaction = db.transaction([DB_CONFIG.stores.locales], 'readwrite')
+  const store = transaction.objectStore(DB_CONFIG.stores.locales)
+
+  const newLocale: LocaleVariant = {
+    ...locale,
+    id: crypto.randomUUID(),
+    createdAt: new Date(),
+    updatedAt: new Date()
+  }
+
+  return new Promise((resolve, reject) => {
+    const request = store.add(newLocale)
+    
+    request.onsuccess = () => resolve(newLocale)
+    request.onerror = () => reject(new Error('添加本地化版本失败'))
+  })
+}
+
+/**
+ * 获取本地化版本列表
+ */
+export async function listLocales(): Promise<LocaleVariant[]> {
+  const db = await getDatabase()
+  const transaction = db.transaction([DB_CONFIG.stores.locales], 'readonly')
+  const store = transaction.objectStore(DB_CONFIG.stores.locales)
+
+  return new Promise((resolve, reject) => {
+    const request = store.getAll()
+    
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(new Error('获取本地化版本列表失败'))
+  })
+}
+
+// ========== 数据导入导出 ==========
 
 /**
  * 数据导出功能
- * TODO: 实现数据备份导出
  */
 export async function exportData(): Promise<string> {
-  throw new Error('exportData 方法待实现')
+  const [ideas, scripts, locales] = await Promise.all([
+    listIdeas(),
+    listScripts(),
+    listLocales()
+  ])
+
+  const exportData = {
+    version: DB_CONFIG.version,
+    timestamp: new Date().toISOString(),
+    data: {
+      ideas,
+      scripts,
+      locales
+    }
+  }
+
+  return JSON.stringify(exportData, null, 2)
 }
 
 /**
  * 数据导入功能
- * TODO: 实现数据恢复导入
  */
 export async function importData(data: string): Promise<void> {
-  throw new Error('importData 方法待实现')
+  const parsedData = JSON.parse(data)
+  const db = await getDatabase()
+  
+  const transaction = db.transaction([
+    DB_CONFIG.stores.ideas,
+    DB_CONFIG.stores.scripts,
+    DB_CONFIG.stores.locales
+  ], 'readwrite')
+
+  const ideasStore = transaction.objectStore(DB_CONFIG.stores.ideas)
+  const scriptsStore = transaction.objectStore(DB_CONFIG.stores.scripts)
+  const localesStore = transaction.objectStore(DB_CONFIG.stores.locales)
+
+  // 导入数据
+  if (parsedData.data?.ideas) {
+    for (const idea of parsedData.data.ideas) {
+      await ideasStore.put(idea)
+    }
+  }
+
+  if (parsedData.data?.scripts) {
+    for (const script of parsedData.data.scripts) {
+      await scriptsStore.put(script)
+    }
+  }
+
+  if (parsedData.data?.locales) {
+    for (const locale of parsedData.data.locales) {
+      await localesStore.put(locale)
+    }
+  }
 }

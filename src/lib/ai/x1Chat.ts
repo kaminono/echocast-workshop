@@ -107,10 +107,10 @@ export async function chatComplete(
       };
     } else {
       // 非流式响应处理
-      const completion = await client.chat.completions.create(requestParams);
+      const completion = await client.chat.completions.create(requestParams) as any;
 
       // 提取生成的文本
-      const text = completion.choices[0]?.message?.content || '';
+      const text = completion.choices?.[0]?.message?.content || '';
       
       if (!text) {
         throw new Error('API 返回空响应或无效格式');

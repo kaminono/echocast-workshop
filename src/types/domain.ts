@@ -14,12 +14,16 @@ export interface Idea {
   id: string
   /** 创意标题 */
   title: string
+  /** 创意摘要（可选） */
+  summary?: string
   /** 创意内容描述 */
   content: string
   /** 创意标签 */
   tags: string[]
-  /** 创意来源（如：阅读、对话、观察等） */
+  /** 创意来源（如：text、voice、image 等） */
   source?: string
+  /** 是否星标 */
+  starred?: boolean
   /** 优先级（1-5，5为最高） */
   priority: number
   /** 创意状态 */
