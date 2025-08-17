@@ -32,18 +32,40 @@ function checkEnvironment(): boolean {
 /**
  * 生成测试音频数据
  * 
- * 由于没有真实音频文件，生成一个模拟的PCM数据
+ * 生成一个简单的正弦波音频信号，更容易被语音识别
  * 实际使用时应该传入真实的音频文件路径或音频数据
  */
 function generateTestAudio(): Buffer {
-  // 生成 1 秒的静音 PCM 数据 (16kHz, 16bit, mono)
+  // 生成 2 秒的正弦波 PCM 数据 (16kHz, 16bit, mono)
   const sampleRate = 16000;
-  const duration = 1; // 1秒
+  const duration = 2; // 2秒
   const samples = sampleRate * duration;
   const buffer = Buffer.alloc(samples * 2); // 16bit = 2 bytes per sample
   
-  // 填充静音数据 (这只是为了演示，实际应该使用真实音频)
-  buffer.fill(0);
+  // 生成多频率混合音频，模拟语音特征
+  for (let i = 0; i < samples; i++) {
+    const t = i / sampleRate;
+    
+    // 混合多个频率，模拟语音频谱特征
+    const freq1 = 400; // 基频
+    const freq2 = 800; // 倍频
+    const freq3 = 1200; // 高频成分
+    
+    const amplitude = 0.3; // 适中音量
+    const sample = amplitude * (
+      Math.sin(2 * Math.PI * freq1 * t) * 0.5 +
+      Math.sin(2 * Math.PI * freq2 * t) * 0.3 +
+      Math.sin(2 * Math.PI * freq3 * t) * 0.2
+    );
+    
+    // 添加包络，模拟语音的起伏
+    const envelope = Math.sin(Math.PI * t / duration);
+    const finalSample = sample * envelope;
+    
+    // 转换为 16bit PCM
+    const pcmValue = Math.round(finalSample * 32767);
+    buffer.writeInt16LE(Math.max(-32768, Math.min(32767, pcmValue)), i * 2);
+  }
   
   return buffer;
 }
@@ -81,7 +103,7 @@ async function main() {
       console.log('🎵 使用样例音频文件');
     } else {
       audioData = generateTestAudio();
-      audioSource = '生成的测试数据 (静音)';
+      audioSource = '生成的测试数据 (正弦波音频)';
       console.log('⚠️  未找到样例音频文件，使用模拟数据');
       console.log('   提示: 可以将真实的 16kHz PCM/WAV 文件放在 ./fixtures/sample.wav');
     }

@@ -229,8 +229,11 @@ export class IATTransport {
     return new Promise((resolve, reject) => {
       try {
         const data = JSON.stringify(frame);
+        this.logger.info(`发送帧数据: ${data.length} 字节`);
+        
         this.ws!.send(data, (error) => {
           if (error) {
+            this.logger.error('WebSocket 发送失败:', error);
             reject(new IATError(
               IATErrorCode.NETWORK_ERROR,
               `发送数据失败: ${error.message}`,
@@ -241,9 +244,11 @@ export class IATTransport {
           }
         });
       } catch (error) {
+        this.logger.error('序列化数据帧失败:', error);
+        this.logger.error('帧数据:', frame);
         reject(new IATError(
           IATErrorCode.UNKNOWN_ERROR,
-          '序列化数据帧失败',
+          `序列化数据帧失败: ${error instanceof Error ? error.message : '未知错误'}`,
           error
         ));
       }

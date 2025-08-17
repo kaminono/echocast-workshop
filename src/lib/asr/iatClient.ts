@@ -303,10 +303,10 @@ export class IATClient {
         business: isFirst ? {
           language: params.language.language,
           domain: params.language.domain,
-          accent: params.language.accent,
-          pd: params.punc?.toString(),  // 标点符号参数名应该是 pd，且为字符串
-          nbest: params.nbest
-        } : {} as any,
+          ...(params.language.accent && { accent: params.language.accent }),
+          ...(params.punc !== undefined && { pd: params.punc.toString() }),
+          ...(params.nbest && { nbest: params.nbest })
+        } : {},
         data: {
           status: isFirst ? 0 : isLast ? 2 : 1,
           format: 'audio/L16;rate=16000',
