@@ -50,10 +50,20 @@ function validateRequest(body: any): { valid: boolean; error?: string } {
 /**
  * 解析 AI 回复为结构化数据
  */
+function normalizeText(text: string): string {
+  // 去除 Markdown 代码块包裹，如 ```json 或 ``` 等
+  let t = text.trim();
+  t = t.replace(/^```[a-zA-Z]*\s*/g, '').replace(/```\s*$/g, '').trim();
+  // 去除多余引号或反引号
+  t = t.replace(/^`+|`+$/g, '').trim();
+  return t;
+}
+
 function parseAIResponse(response: string): OptimizeIdeaResponse {
+  const cleaned = normalizeText(response);
   try {
     // 尝试解析 JSON 格式
-    const parsed = JSON.parse(response)
+    const parsed = JSON.parse(cleaned)
     if (parsed.title && parsed.summary) {
       return {
         title: String(parsed.title).trim(),
@@ -65,7 +75,7 @@ function parseAIResponse(response: string): OptimizeIdeaResponse {
   }
 
   // 文本解析：寻找标题和摘要
-  const lines = response.split('\n').map(line => line.trim()).filter(line => line.length > 0)
+  const lines = cleaned.split('\n').map(line => line.trim()).filter(line => line.length > 0)
   
   let title = ''
   let summary = ''
@@ -97,8 +107,8 @@ function parseAIResponse(response: string): OptimizeIdeaResponse {
   }
   
   return {
-    title: title || '优化后的播客创意',
-    summary: summary || '基于您的想法生成的播客创意摘要'
+    title: (title || '优化后的播客创意').replace(/^```json\s*/i, '').replace(/^```\s*/i, '').trim(),
+    summary: (summary || '基于您的想法生成的播客创意摘要').replace(/^```json\s*/i, '').replace(/^```\s*/i, '').trim()
   }
 }
 

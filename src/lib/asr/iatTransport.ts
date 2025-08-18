@@ -7,7 +7,8 @@
  */
 
 import crypto from 'crypto';
-import WebSocket from 'ws';
+// 在浏览器环境中使用原生 WebSocket，在 Node.js 环境中使用 ws 库
+const WebSocketImpl = typeof window !== 'undefined' ? WebSocket : require('ws');
 import {
   IATConfig,
   TransportConfig,
@@ -89,7 +90,7 @@ export function generateAuthUrl(config: AuthConfig): string {
  * WebSocket传输层类
  */
 export class IATTransport {
-  private ws: WebSocket | null = null;
+  private ws: any | null = null;
   private logger: Logger;
   private config: TransportConfig;
   private connectionState: WSConnectionState = WSConnectionState.CLOSED;
@@ -142,7 +143,7 @@ export class IATTransport {
         this.logger.info('正在连接 IAT WebSocket...');
         
         // 创建WebSocket连接
-        this.ws = new WebSocket(authUrl);
+        this.ws = new WebSocketImpl(authUrl);
         
         // 设置超时
         const timeout = this.config.timeout || 20000;
@@ -226,33 +227,45 @@ export class IATTransport {
       throw new IATError(IATErrorCode.NETWORK_ERROR, 'WebSocket 连接未建立');
     }
 
-    return new Promise((resolve, reject) => {
-      try {
-        const data = JSON.stringify(frame);
-        this.logger.info(`发送帧数据: ${data.length} 字节`);
-        
-        this.ws!.send(data, (error) => {
-          if (error) {
-            this.logger.error('WebSocket 发送失败:', error);
-            reject(new IATError(
-              IATErrorCode.NETWORK_ERROR,
-              `发送数据失败: ${error.message}`,
-              error
-            ));
-          } else {
-            resolve();
-          }
+    try {
+      const data = JSON.stringify(frame);
+      this.logger.info(`[NODE-FIXED] 发送帧数据: ${data.length} 字节`);
+      
+      // Node.js 环境：检查 ws 库的 send 方法签名
+      const wsInstance = this.ws as any;
+      
+      // 检查 send 方法是否接受回调（Node.js ws 库特有）
+      if (wsInstance.send && wsInstance.send.length > 1) {
+        // Node.js ws 库的回调形式
+        await new Promise<void>((resolve, reject) => {
+          wsInstance.send(data, (error: Error | undefined) => {
+            if (error) {
+              this.logger.error('[NODE-FIXED] WebSocket 发送失败:', error);
+              reject(new IATError(
+                IATErrorCode.NETWORK_ERROR,
+                `发送数据失败: ${error.message}`,
+                error
+              ));
+            } else {
+              resolve();
+            }
+          });
         });
-      } catch (error) {
-        this.logger.error('序列化数据帧失败:', error);
-        this.logger.error('帧数据:', frame);
-        reject(new IATError(
-          IATErrorCode.UNKNOWN_ERROR,
-          `序列化数据帧失败: ${error instanceof Error ? error.message : '未知错误'}`,
-          error
-        ));
+      } else {
+        // 标准 WebSocket API（浏览器或其他实现）
+        wsInstance.send(data);
       }
-    });
+      
+      this.logger.info('[NODE-FIXED] 数据发送成功');
+    } catch (error) {
+      this.logger.error('[NODE-FIXED] 发送帧数据失败:', error);
+      this.logger.error('帧数据:', frame);
+      throw new IATError(
+        IATErrorCode.NETWORK_ERROR,
+        `[NODE-FIXED] 发送数据失败: ${error instanceof Error ? error.message : '未知错误'}`,
+        error
+      );
+    }
   }
 
   /**

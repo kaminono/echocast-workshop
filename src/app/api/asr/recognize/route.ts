@@ -103,39 +103,120 @@ export async function POST(request: NextRequest): Promise<NextResponse<Recognize
   const startTime = Date.now();
   
   try {
-    // 解析请求体
-    let body: RecognizeRequest;
-    try {
-      body = await request.json();
-    } catch (error) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: '请求体格式错误，必须是有效的 JSON',
-          errorCode: 'INVALID_JSON'
-        },
-        { status: 400 }
-      );
-    }
+    let audioBase64: string;
+    let audioParams: any = {};
+    let languageParams: any = {};
+    let addPunctuation = true;
 
-    // 验证请求参数
-    const validation = validateRequest(body);
-    if (!validation.valid) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: validation.error,
-          errorCode: 'VALIDATION_ERROR'
-        },
-        { status: 400 }
-      );
-    }
-
-    // 构建转写参数
-    const { audio, audioParams, languageParams, addPunctuation = true } = body;
+    // 检查 Content-Type 决定解析方式
+    const contentType = request.headers.get('content-type') || '';
     
+    if (contentType.includes('multipart/form-data')) {
+      // 处理 FormData 格式
+      try {
+        const formData = await request.formData();
+        const audioFile = formData.get('file') as File;
+        
+        if (!audioFile) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: '未找到音频文件，请确保文件字段名为 "file"',
+              errorCode: 'MISSING_FILE'
+            },
+            { status: 400 }
+          );
+        }
+
+        // 验证文件大小（最大 10MB）
+        if (audioFile.size > 10 * 1024 * 1024) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: '音频文件过大，请确保文件小于 10MB',
+              errorCode: 'FILE_TOO_LARGE'
+            },
+            { status: 400 }
+          );
+        }
+
+        // 验证文件类型
+        if (!audioFile.type.startsWith('audio/')) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: '不支持的文件类型，请上传音频文件',
+              errorCode: 'INVALID_FILE_TYPE'
+            },
+            { status: 400 }
+          );
+        }
+
+        // 将文件转换为 Base64
+        const arrayBuffer = await audioFile.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        audioBase64 = buffer.toString('base64');
+
+        // 从 FormData 中获取其他参数
+        const sampleRateStr = formData.get('sampleRate')?.toString();
+        const encoding = formData.get('encoding')?.toString();
+        const language = formData.get('language')?.toString();
+        const accent = formData.get('accent')?.toString();
+        const puncStr = formData.get('addPunctuation')?.toString();
+
+        if (sampleRateStr) audioParams.sampleRate = parseInt(sampleRateStr);
+        if (encoding) audioParams.encoding = encoding;
+        if (language) languageParams.language = language;
+        if (accent) languageParams.accent = accent;
+        if (puncStr) addPunctuation = puncStr === 'true';
+
+      } catch (error) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: '解析 FormData 失败',
+            errorCode: 'FORMDATA_PARSE_ERROR'
+          },
+          { status: 400 }
+        );
+      }
+    } else {
+      // 处理 JSON 格式
+      let body: RecognizeRequest;
+      try {
+        body = await request.json();
+      } catch (error) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: '请求体格式错误，必须是有效的 JSON',
+            errorCode: 'INVALID_JSON'
+          },
+          { status: 400 }
+        );
+      }
+
+      // 验证请求参数
+      const validation = validateRequest(body);
+      if (!validation.valid) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: validation.error,
+            errorCode: 'VALIDATION_ERROR'
+          },
+          { status: 400 }
+        );
+      }
+
+      audioBase64 = body.audio;
+      audioParams = body.audioParams || {};
+      languageParams = body.languageParams || {};
+      addPunctuation = body.addPunctuation ?? true;
+    }
+
     // 调用IAT客户端进行转写
-    const result = await transcribe(audio, {
+    const result = await transcribe(audioBase64, {
       audioParams: {
         sampleRate: 16000,
         encoding: 'raw',

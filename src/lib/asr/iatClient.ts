@@ -7,7 +7,7 @@
  */
 
 import dotenv from 'dotenv';
-import { createTransport, IATTransport } from './iatTransport';
+import { createTransport, IATTransport } from './iatTransport.fixed';
 import {
   IATConfig,
   IATResult,
@@ -120,7 +120,11 @@ export class IATClient {
       const audioBuffer = await this.prepareAudioData(audio);
       
       // 创建传输层
+      console.log('[IAT-CLIENT] 环境检测:', typeof window !== 'undefined' ? 'BROWSER' : 'NODE');
+      console.log('[IAT-CLIENT] 使用的传输层:', typeof window !== 'undefined' ? 'BrowserTransport' : 'NodeTransport');
       this.transport = createTransport(this.config);
+      // 绑定会话处理器的统一解绑函数，避免未实现 off 导致的异常
+      const unregisterAll = () => this.transport && (this.transport as any).off ? (this.transport as any).off(sessionId) : (() => { this.transport?.removeMessageHandler(sessionId); this.transport?.removeErrorHandler(sessionId); })();
       
       // 建立连接
       await this.transport.connect();
@@ -219,6 +223,22 @@ export class IATClient {
 
       // 注册消息处理器
       const sessionId = Date.now().toString();
+
+      // 统一解绑工具，兼容不同传输层实现
+      const unregisterAll = () => {
+        if (!this.transport) return;
+        const t: any = this.transport as any;
+        if (typeof t.off === 'function') {
+          t.off(sessionId);
+        } else {
+          if (typeof (this.transport as any).removeMessageHandler === 'function') {
+            (this.transport as any).removeMessageHandler(sessionId);
+          }
+          if (typeof (this.transport as any).removeErrorHandler === 'function') {
+            (this.transport as any).removeErrorHandler(sessionId);
+          }
+        }
+      };
       
       this.transport!.onMessage(sessionId, (response: WSResponse) => {
         rawResponses.push(response);
@@ -248,18 +268,14 @@ export class IATClient {
 
       // 注册错误处理器
       this.transport!.onError(sessionId, (error: IATError) => {
-        if (this.transport) {
-          this.transport.off(sessionId);
-        }
+        unregisterAll();
         reject(error);
       });
 
       // 发送音频数据
       this.sendAudioData(audioBuffer, params)
         .catch((error) => {
-          if (this.transport) {
-            this.transport.off(sessionId);
-          }
+          unregisterAll();
           reject(error);
         });
 
@@ -267,7 +283,7 @@ export class IATClient {
       const timeout = this.config.timeout || 20000;
       setTimeout(() => {
         if (!isTranscriptionComplete && this.transport) {
-          this.transport.off(sessionId);
+          unregisterAll();
           reject(new IATError(
             IATErrorCode.TIMEOUT_ERROR,
             `转写超时 (${timeout}ms)`

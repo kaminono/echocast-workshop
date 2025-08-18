@@ -7,16 +7,17 @@
  * 3. Locales - 多语种版本数据
  */
 
-import type { Idea, ScriptDraft, LocaleVariant } from '@/types/domain'
+import type { Idea, ScriptDraft, LocaleVariant, IdeaAsset } from '@/types/domain'
 
 // 数据库配置
 export const DB_CONFIG = {
   name: 'EchoCastWorkshop',
-  version: 1,
+  version: 2,
   stores: {
     ideas: 'ideas',
     scripts: 'scripts', 
-    locales: 'locales'
+    locales: 'locales',
+    ideaAssets: 'ideaAssets'
   }
 } as const
 
@@ -45,29 +46,45 @@ export async function initDatabase(): Promise<IDBDatabase> {
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result
+      const transaction = (event.target as IDBOpenDBRequest).transaction!
+      const oldVersion = event.oldVersion
 
-      // 创建 ideas 对象存储
-      if (!db.objectStoreNames.contains(DB_CONFIG.stores.ideas)) {
-        const ideasStore = db.createObjectStore(DB_CONFIG.stores.ideas, { keyPath: 'id' })
-        ideasStore.createIndex('createdAt', 'createdAt', { unique: false })
-        ideasStore.createIndex('source', 'source', { unique: false })
-        ideasStore.createIndex('starred', 'starred', { unique: false })
+      // 版本 1: 创建基础的 ideas, scripts, locales 存储
+      if (oldVersion < 1) {
+        // 创建 ideas 对象存储
+        if (!db.objectStoreNames.contains(DB_CONFIG.stores.ideas)) {
+          const ideasStore = db.createObjectStore(DB_CONFIG.stores.ideas, { keyPath: 'id' })
+          ideasStore.createIndex('createdAt', 'createdAt', { unique: false })
+          ideasStore.createIndex('source', 'source', { unique: false })
+          ideasStore.createIndex('starred', 'starred', { unique: false })
+        }
+
+        // 创建 scripts 对象存储
+        if (!db.objectStoreNames.contains(DB_CONFIG.stores.scripts)) {
+          const scriptsStore = db.createObjectStore(DB_CONFIG.stores.scripts, { keyPath: 'id' })
+          scriptsStore.createIndex('ideaId', 'ideaId', { unique: false })
+          scriptsStore.createIndex('status', 'status', { unique: false })
+          scriptsStore.createIndex('createdAt', 'createdAt', { unique: false })
+        }
+
+        // 创建 locales 对象存储
+        if (!db.objectStoreNames.contains(DB_CONFIG.stores.locales)) {
+          const localesStore = db.createObjectStore(DB_CONFIG.stores.locales, { keyPath: 'id' })
+          localesStore.createIndex('scriptId', 'scriptId', { unique: false })
+          localesStore.createIndex('locale', 'locale', { unique: false })
+          localesStore.createIndex('createdAt', 'createdAt', { unique: false })
+        }
       }
 
-      // 创建 scripts 对象存储
-      if (!db.objectStoreNames.contains(DB_CONFIG.stores.scripts)) {
-        const scriptsStore = db.createObjectStore(DB_CONFIG.stores.scripts, { keyPath: 'id' })
-        scriptsStore.createIndex('ideaId', 'ideaId', { unique: false })
-        scriptsStore.createIndex('status', 'status', { unique: false })
-        scriptsStore.createIndex('createdAt', 'createdAt', { unique: false })
-      }
-
-      // 创建 locales 对象存储
-      if (!db.objectStoreNames.contains(DB_CONFIG.stores.locales)) {
-        const localesStore = db.createObjectStore(DB_CONFIG.stores.locales, { keyPath: 'id' })
-        localesStore.createIndex('scriptId', 'scriptId', { unique: false })
-        localesStore.createIndex('locale', 'locale', { unique: false })
-        localesStore.createIndex('createdAt', 'createdAt', { unique: false })
+      // 版本 2: 添加 ideaAssets 存储用于音频文件
+      if (oldVersion < 2) {
+        // 创建 ideaAssets 对象存储
+        if (!db.objectStoreNames.contains(DB_CONFIG.stores.ideaAssets)) {
+          const ideaAssetsStore = db.createObjectStore(DB_CONFIG.stores.ideaAssets, { keyPath: 'id' })
+          ideaAssetsStore.createIndex('createdAt', 'createdAt', { unique: false })
+          ideaAssetsStore.createIndex('mimeType', 'mimeType', { unique: false })
+          ideaAssetsStore.createIndex('sizeBytes', 'sizeBytes', { unique: false })
+        }
       }
     }
   })
@@ -275,6 +292,62 @@ export async function listLocales(): Promise<LocaleVariant[]> {
     
     request.onsuccess = () => resolve(request.result)
     request.onerror = () => reject(new Error('获取本地化版本列表失败'))
+  })
+}
+
+// ========== IdeaAssets 操作方法 ==========
+
+/**
+ * 添加音频资产
+ */
+export async function addIdeaAsset(asset: Omit<IdeaAsset, 'id' | 'createdAt'>): Promise<IdeaAsset> {
+  const db = await getDatabase()
+  const transaction = db.transaction([DB_CONFIG.stores.ideaAssets], 'readwrite')
+  const store = transaction.objectStore(DB_CONFIG.stores.ideaAssets)
+
+  const newAsset: IdeaAsset = {
+    ...asset,
+    id: crypto.randomUUID(),
+    createdAt: new Date()
+  }
+
+  return new Promise((resolve, reject) => {
+    const request = store.add(newAsset)
+    
+    request.onsuccess = () => resolve(newAsset)
+    request.onerror = () => reject(new Error('添加音频资产失败'))
+  })
+}
+
+/**
+ * 根据 ID 获取音频资产
+ */
+export async function getIdeaAsset(id: string): Promise<IdeaAsset | null> {
+  const db = await getDatabase()
+  const transaction = db.transaction([DB_CONFIG.stores.ideaAssets], 'readonly')
+  const store = transaction.objectStore(DB_CONFIG.stores.ideaAssets)
+
+  return new Promise((resolve, reject) => {
+    const request = store.get(id)
+    
+    request.onsuccess = () => resolve(request.result || null)
+    request.onerror = () => reject(new Error('获取音频资产失败'))
+  })
+}
+
+/**
+ * 删除音频资产
+ */
+export async function deleteIdeaAsset(id: string): Promise<void> {
+  const db = await getDatabase()
+  const transaction = db.transaction([DB_CONFIG.stores.ideaAssets], 'readwrite')
+  const store = transaction.objectStore(DB_CONFIG.stores.ideaAssets)
+
+  return new Promise((resolve, reject) => {
+    const request = store.delete(id)
+    
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(new Error('删除音频资产失败'))
   })
 }
 
