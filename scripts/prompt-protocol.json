@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FourElementsPromptProtocol",
+  "type": "object",
+  "properties": {
+    "mode": { "enum": ["normalize", "enhance"] },
+    "input": {
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 120 },
+        "intro": { "type": "string", "maxLength": 280 },
+        "bulletPoints": {
+          "type": "array",
+          "maxItems": 3,
+          "items": { "type": "string", "maxLength": 140 }
+        },
+        "cta": { "type": "string", "maxLength": 140 }
+      },
+      "additionalProperties": false
+    },
+    "constraints": {
+      "type": "object",
+      "properties": {
+        "language": { "type": "string", "default": "zh" },
+        "tone": { "type": "string", "enum": ["neutral", "friendly", "professional", "humorous"], "default": "friendly" }
+      }
+    }
+  },
+  "required": ["mode", "input"],
+  "additionalProperties": false,
+  "examples": [
+    {
+      "mode": "normalize",
+      "input": {
+        "title": "播客里的效率神器",
+        "intro": "一件小事如何让你的播客更高效",
+        "bulletPoints": ["三步搭建流程", "常见坑避免", "上线后的优化方向"],
+        "cta": "订阅并分享给需要的朋友"
+      },
+      "constraints": { "language": "zh", "tone": "professional" }
+    },
+    {
+      "mode": "enhance",
+      "input": {
+        "title": "AI 助手",
+        "intro": "",
+        "bulletPoints": ["", ""],
+        "cta": "关注"
+      },
+      "constraints": { "language": "zh", "tone": "friendly" }
+    }
+  ]
+}
+
+

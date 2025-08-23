@@ -7,17 +7,18 @@
  * 3. Locales - 多语种版本数据
  */
 
-import type { Idea, ScriptDraft, LocaleVariant, IdeaAsset } from '@/types/domain'
+import type { Idea, ScriptDraft, LocaleVariant, IdeaAsset, FinalScript } from '@/types/domain'
 
 // 数据库配置
 export const DB_CONFIG = {
   name: 'EchoCastWorkshop',
-  version: 2,
+  version: 3,
   stores: {
     ideas: 'ideas',
     scripts: 'scripts', 
     locales: 'locales',
-    ideaAssets: 'ideaAssets'
+    ideaAssets: 'ideaAssets',
+    finalScripts: 'finalScripts'
   }
 } as const
 
@@ -84,6 +85,52 @@ export async function initDatabase(): Promise<IDBDatabase> {
           ideaAssetsStore.createIndex('createdAt', 'createdAt', { unique: false })
           ideaAssetsStore.createIndex('mimeType', 'mimeType', { unique: false })
           ideaAssetsStore.createIndex('sizeBytes', 'sizeBytes', { unique: false })
+        }
+      }
+
+      // 版本 3: 添加 finalScripts 仓库；修正 scripts 的 ideaId 唯一索引；locales 绑定 finalScript
+      if (oldVersion < 3) {
+        // finalScripts
+        if (!db.objectStoreNames.contains(DB_CONFIG.stores.finalScripts)) {
+          const finals = db.createObjectStore(DB_CONFIG.stores.finalScripts, { keyPath: 'id' })
+          finals.createIndex('ideaId', 'ideaId', { unique: false })
+          finals.createIndex('versionNumber', 'versionNumber', { unique: false })
+          // 组合唯一键，确保版本不重复（并发安全）
+          finals.createIndex('versionKey', 'versionKey', { unique: true })
+          finals.createIndex('createdAt', 'createdAt', { unique: false })
+        }
+
+        // scripts: 为 ideaId 建立唯一索引，确保一个 idea 只有一份草稿
+        if (db.objectStoreNames.contains(DB_CONFIG.stores.scripts)) {
+          const scriptsStore = transaction.objectStore(DB_CONFIG.stores.scripts)
+          try {
+            // 删除旧的非唯一索引（如果存在）
+            scriptsStore.deleteIndex('ideaId')
+          } catch {}
+          scriptsStore.createIndex('ideaId', 'ideaId', { unique: true })
+          try {
+            // 删除可能不再需要的旧索引
+            scriptsStore.deleteIndex('status')
+          } catch {}
+          scriptsStore.createIndex('status', 'status', { unique: false })
+          try {
+            scriptsStore.deleteIndex('createdAt')
+          } catch {}
+          scriptsStore.createIndex('createdAt', 'createdAt', { unique: false })
+        }
+
+        // locales: 迁移绑定字段与索引
+        if (db.objectStoreNames.contains(DB_CONFIG.stores.locales)) {
+          const localesStore = transaction.objectStore(DB_CONFIG.stores.locales)
+          try { localesStore.deleteIndex('scriptId') } catch {}
+          try { localesStore.deleteIndex('locale') } catch {}
+          try { localesStore.deleteIndex('createdAt') } catch {}
+          localesStore.createIndex('finalScriptId', 'finalScriptId', { unique: false })
+          localesStore.createIndex('sourceVersion', 'sourceVersion', { unique: false })
+          localesStore.createIndex('locale', 'locale', { unique: false })
+          // 每个定稿版本每种语言唯一
+          localesStore.createIndex('finalLocaleKey', 'finalLocaleKey', { unique: true })
+          localesStore.createIndex('createdAt', 'createdAt', { unique: false })
         }
       }
     }
@@ -226,8 +273,8 @@ export async function addScript(script: Omit<ScriptDraft, 'id' | 'createdAt' | '
   const newScript: ScriptDraft = {
     ...script,
     id: crypto.randomUUID(),
-    createdAt: new Date(),
-    updatedAt: new Date()
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   }
 
   return new Promise((resolve, reject) => {
@@ -264,11 +311,15 @@ export async function addLocale(locale: Omit<LocaleVariant, 'id' | 'createdAt' |
   const transaction = db.transaction([DB_CONFIG.stores.locales], 'readwrite')
   const store = transaction.objectStore(DB_CONFIG.stores.locales)
 
+  const finalLocaleKey = `${locale.finalScriptId}#${locale.locale}`
   const newLocale: LocaleVariant = {
     ...locale,
     id: crypto.randomUUID(),
-    createdAt: new Date(),
-    updatedAt: new Date()
+    // 用于唯一性约束
+    // @ts-expect-error attach synthetic key for index only
+    finalLocaleKey,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   }
 
   return new Promise((resolve, reject) => {
@@ -277,6 +328,67 @@ export async function addLocale(locale: Omit<LocaleVariant, 'id' | 'createdAt' |
     request.onsuccess = () => resolve(newLocale)
     request.onerror = () => reject(new Error('添加本地化版本失败'))
   })
+}
+
+// ========== FinalScripts 操作方法 ==========
+
+export async function addFinalScript(final: Omit<FinalScript, 'id' | 'createdAt' | 'updatedAt' | 'versionNumber'> & { versionNumber?: number }): Promise<FinalScript> {
+  const db = await getDatabase()
+  const transaction = db.transaction([DB_CONFIG.stores.finalScripts], 'readwrite')
+  const store = transaction.objectStore(DB_CONFIG.stores.finalScripts)
+
+  // 计算 versionNumber；如果调用方提供则优先使用（仅用于迁移），否则自动分配
+  const assignedVersion = await new Promise<number>((resolve, reject) => {
+    if (typeof final.versionNumber === 'number' && final.versionNumber > 0) {
+      resolve(final.versionNumber)
+      return
+    }
+    // 读取该 ideaId 下的所有版本，取最大 + 1
+    const index = store.index('ideaId')
+    const req = index.getAll(final.ideaId)
+    req.onsuccess = () => {
+      const rows = req.result as any[]
+      const max = rows.reduce((m, r) => Math.max(m, Number(r.versionNumber || 0)), 0)
+      resolve(max + 1)
+    }
+    req.onerror = () => reject(new Error('读取版本失败'))
+  })
+
+  const versionKey = `${final.ideaId}#${assignedVersion}`
+  const newFinal: FinalScript = {
+    ...(final as any),
+    id: crypto.randomUUID(),
+    versionNumber: assignedVersion,
+    // @ts-expect-error synthetic index key
+    versionKey,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+
+  return new Promise((resolve, reject) => {
+    const request = store.add(newFinal as any)
+    request.onsuccess = () => resolve(newFinal)
+    request.onerror = () => reject(new Error('添加定稿失败'))
+  })
+}
+
+export async function listFinalScriptsByIdea(ideaId: string): Promise<FinalScript[]> {
+  const db = await getDatabase()
+  const store = db.transaction([DB_CONFIG.stores.finalScripts], 'readonly').objectStore(DB_CONFIG.stores.finalScripts)
+  const index = store.index('ideaId')
+  return new Promise((resolve, reject) => {
+    const req = index.getAll(ideaId)
+    req.onsuccess = () => {
+      const items = (req.result as FinalScript[]).sort((a, b) => a.versionNumber - b.versionNumber)
+      resolve(items)
+    }
+    req.onerror = () => reject(new Error('获取定稿列表失败'))
+  })
+}
+
+export async function getFinalScriptByVersion(ideaId: string, versionNumber: number): Promise<FinalScript | null> {
+  const finals = await listFinalScriptsByIdea(ideaId)
+  return finals.find(f => f.versionNumber === versionNumber) || null
 }
 
 /**
