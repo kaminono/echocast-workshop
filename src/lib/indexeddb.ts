@@ -355,15 +355,14 @@ export async function addFinalScript(final: Omit<FinalScript, 'id' | 'createdAt'
   })
 
   const versionKey = `${final.ideaId}#${assignedVersion}`
-  const newFinal: FinalScript = {
+  const newFinal = {
     ...(final as any),
     id: crypto.randomUUID(),
     versionNumber: assignedVersion,
-    // @ts-expect-error synthetic index key
     versionKey,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-  }
+  } as FinalScript & { versionKey: string }
 
   return new Promise((resolve, reject) => {
     const request = store.add(newFinal as any)
@@ -523,4 +522,96 @@ export async function importData(data: string): Promise<void> {
       await localesStore.put(locale)
     }
   }
+}
+
+// ==================== 兼容层导出（替代 src/lib/idb.ts） ====================
+
+export const IDB_CONFIG = {
+  name: DB_CONFIG.name,
+  version: DB_CONFIG.version,
+  stores: {
+    ideas: DB_CONFIG.stores.ideas,
+    drafts: DB_CONFIG.stores.scripts,          // map drafts -> scripts
+    finalScripts: DB_CONFIG.stores.finalScripts, // map final_scripts -> finalScripts
+    localeVariants: DB_CONFIG.stores.locales,  // map locale_variants -> locales
+  }
+} as const
+
+export async function openDatabase(): Promise<IDBDatabase> {
+  return initDatabase()
+}
+
+export async function withRead<T>(storeName: string, fn: (store: IDBObjectStore) => T | Promise<T>): Promise<T> {
+  const db = await getDatabase()
+  const tx = db.transaction([storeName], 'readonly')
+  const store = tx.objectStore(storeName)
+  const res = await fn(store)
+  await txDone(tx)
+  return res
+}
+
+export async function withWrite<T>(storeName: string, fn: (store: IDBObjectStore) => T | Promise<T>): Promise<T> {
+  const db = await getDatabase()
+  const tx = db.transaction([storeName], 'readwrite')
+  const store = tx.objectStore(storeName)
+  const res = await fn(store)
+  await txDone(tx)
+  return res
+}
+
+function txDone(tx: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error || new Error('事务失败'))
+    tx.onabort = () => reject(tx.error || new Error('事务中止'))
+  })
+}
+
+export function idbAdd<T>(store: IDBObjectStore, value: T): Promise<IDBValidKey> {
+  return new Promise((resolve, reject) => {
+    const req = store.add(value as any)
+    req.onsuccess = () => resolve(req.result)
+    req.onerror = () => reject(req.error || new Error('add 失败'))
+  })
+}
+
+export function idbPut<T>(store: IDBObjectStore, value: T): Promise<IDBValidKey> {
+  return new Promise((resolve, reject) => {
+    const req = store.put(value as any)
+    req.onsuccess = () => resolve(req.result)
+    req.onerror = () => reject(req.error || new Error('put 失败'))
+  })
+}
+
+export function idbGet<T>(store: IDBObjectStore, key: IDBValidKey): Promise<T | undefined> {
+  return new Promise((resolve, reject) => {
+    const req = store.get(key)
+    req.onsuccess = () => resolve(req.result as T | undefined)
+    req.onerror = () => reject(req.error || new Error('get 失败'))
+  })
+}
+
+export function idbIndexGetAll<T>(store: IDBObjectStore, indexName: string, query?: IDBValidKey | IDBKeyRange): Promise<T[]> {
+  return new Promise((resolve, reject) => {
+    const idx = store.index(indexName)
+    const req = query === undefined ? idx.getAll() : idx.getAll(query)
+    req.onsuccess = () => resolve((req.result || []) as T[])
+    req.onerror = () => reject(req.error || new Error('index.getAll 失败'))
+  })
+}
+
+export function idbGetAll<T>(store: IDBObjectStore): Promise<T[]> {
+  return new Promise((resolve, reject) => {
+    const req = store.getAll()
+    req.onsuccess = () => resolve((req.result || []) as T[])
+    req.onerror = () => reject(req.error || new Error('getAll 失败'))
+  })
+}
+
+export function buildSeriesVersionKey(finalScriptId: string, versionNumber: number): string {
+  return `${finalScriptId}#${versionNumber}`
+}
+
+export function buildFinalLocaleKey(finalScriptId: string, sourceVersion: number, locale: string): string {
+  return `${finalScriptId}#${sourceVersion}#${locale}`
 }

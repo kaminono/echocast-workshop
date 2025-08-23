@@ -419,6 +419,64 @@ const result = await transcribe('./audio/sample.wav');
 - **Node.js 专用**：所有识别逻辑仅在服务端运行，保护 API 密钥安全
 - **完整测试**：包含单元测试、集成测试和条件跳过机制
 
+## 文案打磨工作台（Drafts / Finals）
+
+### 运行
+
+- 安装依赖：
+```bash
+npm i
+```
+- 开发启动：
+```bash
+npm run dev
+```
+
+### 环境变量（可选）
+- 在项目根目录创建 `.env.local`：
+```
+NEXT_PUBLIC_SPARK_API_KEY=your_key
+NEXT_PUBLIC_SPARK_ENDPOINT=https://example.com/v1
+```
+未配置时，LLM 调用走 Mock 分支，UI 会提示“Mock 响应”。
+
+### 技术约束
+- Next.js App Router + TypeScript
+- Tailwind CSS；可用内置组件
+- 状态管理以组件内部状态为主，必要时可引入 Zustand（本迭代未使用）
+- 本地持久化使用 IndexedDB，经 `src/lib/idb.ts` 封装
+
+### 数据契约
+- `Idea`：只读，镜像/种子
+- `ScriptDraft`：仅最新一份，无版本历史
+- `FinalScript`：版本只追加；保证 `(finalScriptId, versionNumber)` 唯一；`finalScriptId` 采用 `ideaId`
+- `LocaleVariant`：绑定 `finalScriptId + sourceVersion`
+
+### 核心路径
+- 页面：
+  - `/drafts` 列表 + 新建草稿（选择点子）
+  - `/drafts/[id]` 编辑 + 生成 + 发布
+  - `/finals` 列表
+  - `/finals/[finalScriptId]` 详情 + 时间线 + 回滚
+- 组件：`src/components/*`
+- 仓库：`src/lib/repos/*`
+- 服务：`src/lib/services/*`
+- LLM 适配：`src/lib/llm/spark-x1.ts`
+
+### 演示脚本（可选）
+浏览器环境可执行 `scripts/demo.ts`（在任意页面加载后于 DevTools Console）：
+```js
+import('/_next/static/chunks/pages/scripts/demo.js').then(m => m?.default?.())
+```
+或将脚本逻辑复制到页面环境执行，按日志观察：创建→生成→发布 v1→再次生成→发布 v2→回滚 v1→发布 v3。
+
+### 提示
+- 键盘：
+  - 草稿编辑页：Cmd/Ctrl+S 发布
+  - 建议输入框：Enter 提交，Shift+Enter 换行，Cmd/Ctrl+Enter 提交
+- 错误/成功反馈通过右下角 Toast 展示
+- 种子数据在客户端启动时注入，可在 `src/mock/seed.ts` 调整
+
 ## 开发指南
 
 ### 代码规范

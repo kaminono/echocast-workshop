@@ -108,6 +108,8 @@ export interface IdeaAsset {
 export interface FinalScript {
   /** 唯一标识符 */
   id: string
+  /** 定稿系列稳定 ID（通常等同于 ideaId，便于按系列聚合） */
+  finalScriptId: string
   /** 关联的创意 ID（版本系列分组键） */
   ideaId: string
   /** 版本号（从 1 开始递增） */
@@ -133,8 +135,10 @@ export interface FinalScript {
     modelParams?: Record<string, unknown>
     notes?: string
   }
-  /** 变更说明 */
-  changeLog?: string
+  /** 变更说明记录 */
+  changeLog?: string[]
+  /** 创建者（可选） */
+  createdBy?: string
   /** 创建时间（ISO 字符串） */
   createdAt: string
   /** 更新时间（ISO 字符串） */
@@ -217,4 +221,20 @@ export interface PaginatedResponse<T> {
   page: number
   pageSize: number
   totalPages: number
+}
+
+/**
+ * 四要素结构体
+ * 
+ * 用于 Draft/Final 的核心可编辑字段集合
+ */
+export interface FourFields {
+  /** 标题（≤40，且不以句号结尾） */
+  title: string
+  /** 引子（1-2 句） */
+  intro: string
+  /** 要点（≤3 条） */
+  bulletPoints: string[]
+  /** 行动号召（单句，动词开头） */
+  cta: string
 }

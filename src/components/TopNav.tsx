@@ -7,6 +7,7 @@ const navigationItems = [
   { name: '首页', href: '/' },
   { name: '创意收集', href: '/ideas' },
   { name: '文案打磨', href: '/drafts' },
+  { name: '定稿', href: '/finals' },
   { name: '时间线', href: '/timeline' },
 ]
 
