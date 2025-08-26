@@ -71,7 +71,7 @@ export const LocaleVariantSchema = z.object({
   bulletPoints: BulletPointsSchema,
   cta: CtaSchema,
   content: z.string().min(1),
-  status: z.enum(['pending', 'translated', 'reviewed', 'published'], { errorMap: () => ({ message: ErrorCode.INVALID_STATUS }) }),
+  status: z.enum(['pending', 'translated', 'reviewed', 'scheduled', 'published', 'failed'], { errorMap: () => ({ message: ErrorCode.INVALID_STATUS }) }),
   translationType: z.enum(['manual', 'ai', 'hybrid']),
   localization: z
     .object({

@@ -172,7 +172,7 @@ export interface LocaleVariant {
   /** 冗余：四要素拼接后的全文 */
   content: string
   /** 翻译状态 */
-  status: 'pending' | 'translated' | 'reviewed' | 'published'
+  status: 'pending' | 'translated' | 'reviewed' | 'scheduled' | 'published' | 'failed'
   /** 翻译方式 */
   translationType: 'manual' | 'ai' | 'hybrid'
   /** 本地化信息 */

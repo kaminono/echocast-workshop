@@ -615,3 +615,11 @@ export function buildSeriesVersionKey(finalScriptId: string, versionNumber: numb
 export function buildFinalLocaleKey(finalScriptId: string, sourceVersion: number, locale: string): string {
   return `${finalScriptId}#${sourceVersion}#${locale}`
 }
+
+export function idbDelete(store: IDBObjectStore, key: IDBValidKey): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const req = store.delete(key)
+    req.onsuccess = () => resolve()
+    req.onerror = () => reject(req.error || new Error('delete 失败'))
+  })
+}

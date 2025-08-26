@@ -7,6 +7,9 @@ import FinalTimeline from '@/components/FinalTimeline'
 import { rollbackToVersion } from '@/lib/services/rollbackToVersion'
 import { useToast } from '@/components/Toast'
 import { formatRelativeTime } from '@/utils/format'
+import LocaleCards from '@/components/LocaleCards'
+import LocaleGenerateDialog from '@/components/LocaleGenerateDialog'
+import * as LocaleRepo from '@/lib/repos/locale-repo'
 
 export default function FinalDetailPage() {
   const params = useParams<{ finalScriptId: string }>()
@@ -16,6 +19,8 @@ export default function FinalDetailPage() {
 
   const [versions, setVersions] = useState<any[]>([])
   const [current, setCurrent] = useState<number | undefined>(undefined)
+  const [locales, setLocales] = useState<any[]>([])
+  const [showDialog, setShowDialog] = useState(false)
 
   useEffect(() => {
     (async () => {
@@ -26,6 +31,14 @@ export default function FinalDetailPage() {
   }, [finalScriptId])
 
   const selected = versions.find((v) => v.versionNumber === current)
+
+  useEffect(() => {
+    (async () => {
+      if (!selected) return
+      const all = await LocaleRepo.listByFinal(finalScriptId, selected.versionNumber)
+      setLocales(all)
+    })()
+  }, [finalScriptId, selected?.versionNumber])
 
   async function rollback() {
     if (!current) return
@@ -81,7 +94,10 @@ export default function FinalDetailPage() {
                 <div className="text-sm text-gray-600">
                   共 {selected.bulletPoints?.length || 0} 个要点
                 </div>
-                <button className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors" onClick={rollback} aria-label="回滚到此版本">回滚到此版本</button>
+                <div className="flex items-center gap-2">
+                  <button className="px-3 py-2 border rounded-md" onClick={() => setShowDialog(true)}>生成多语种</button>
+                  <button className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors" onClick={rollback} aria-label="回滚到此版本">回滚到此版本</button>
+                </div>
               </div>
             </div>
 
@@ -120,6 +136,51 @@ export default function FinalDetailPage() {
                   <div className="text-sm leading-7 text-gray-800 max-w-[80ch] break-words whitespace-pre-wrap">{selected.content}</div>
                 </div>
               </div>
+            )}
+
+            {/* Locales Section */}
+            <div className="rounded-xl border border-gray-200 bg-white">
+              <div className="px-6 py-4 border-b flex items-center justify-between">
+                <div className="text-sm font-semibold text-gray-700">多语种翻译</div>
+                <div className="text-xs text-gray-500">新版本不会继承旧翻译</div>
+              </div>
+              <div className="p-6">
+                {locales.length === 0 ? (
+                  <div className="text-center text-gray-500 text-sm">点击右上角生成多语种</div>
+                ) : (
+                  <LocaleCards
+                    finalScriptId={finalScriptId}
+                    sourceVersion={selected.versionNumber}
+                    source={{ title: selected.title, intro: selected.intro, bulletPoints: selected.bulletPoints, cta: selected.cta }}
+                    items={locales.map((l) => ({
+                      locale: l.locale,
+                      languageName: l.languageName || l.locale,
+                      status: l.status as any,
+                      updatedAt: l.updatedAt,
+                      title: l.title,
+                      intro: l.intro,
+                      bulletPoints: l.bulletPoints,
+                      cta: l.cta,
+                    }))}
+                    onReload={async () => {
+                      const all = await LocaleRepo.listByFinal(finalScriptId, selected?.versionNumber)
+                      setLocales(all)
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+            {showDialog && (
+              <LocaleGenerateDialog
+                finalScriptId={finalScriptId}
+                source={{ title: selected.title, intro: selected.intro, bulletPoints: selected.bulletPoints, cta: selected.cta, sourceVersion: selected.versionNumber }}
+                existingLocales={locales.map((l: any) => l.locale)}
+                onClose={() => setShowDialog(false)}
+                onDone={async () => {
+                  const all = await LocaleRepo.listByFinal(finalScriptId, selected?.versionNumber)
+                  setLocales(all)
+                }}
+              />
             )}
           </div>
         )}
