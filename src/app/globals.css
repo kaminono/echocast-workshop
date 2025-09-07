@@ -9,6 +9,31 @@
   --background-end-rgb: 255, 255, 255;
 }
 
+/* Figma 选择（Docs-heading）所需的颜色与尺寸变量 */
+:root {
+  /* surfaces & borders */
+  --color-surface: #ffffff; /* fill_VZ2D39[0] */
+  --color-border-subtle: #e5e7eb; /* stroke_DQHXGT */
+  --color-border-muted: #d1d5db; /* stroke_OUZ4HH */
+
+  /* text */
+  --color-text-primary: #1f2937; /* fill_6IJ2H6 */
+  --color-text-secondary: #6b7280; /* fill_BTH7NN */
+  --color-text-badge: #000000; /* fill_DWW9PE */
+
+  /* badge (soft green) */
+  --color-badge-soft-bg: #ccfbf1; /* fill_NOA1NT */
+  --color-badge-soft-fg: #115e59; /* fill_4GQGP6 */
+  --color-accent-teal: #2dd4bf; /* fill_8TOWQH */
+
+  /* radii */
+  --radius-docs-heading: 24px;
+
+  /* gradient colors (approx based on fill_ZUBN7K) */
+  --gradient-start: #67e8f9; /* rgb(103, 232, 249) */
+  --gradient-end: #c084fc;   /* rgb(192, 132, 252) */
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --foreground-rgb: 255, 255, 255;
