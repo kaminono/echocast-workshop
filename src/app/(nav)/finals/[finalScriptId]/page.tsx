@@ -10,6 +10,8 @@ import { formatRelativeTime } from '@/utils/format'
 import LocaleCards from '@/components/LocaleCards'
 import LocaleGenerateDialog from '@/components/LocaleGenerateDialog'
 import * as LocaleRepo from '@/lib/repos/locale-repo'
+import PublishCard from '@/components/PublishCard'
+import type { FinalScript } from '@/types/domain'
 
 export default function FinalDetailPage() {
   const params = useParams<{ finalScriptId: string }>()
@@ -17,7 +19,7 @@ export default function FinalDetailPage() {
   const router = useRouter()
   const { show } = useToast()
 
-  const [versions, setVersions] = useState<any[]>([])
+  const [versions, setVersions] = useState<FinalScript[]>([])
   const [current, setCurrent] = useState<number | undefined>(undefined)
   const [locales, setLocales] = useState<any[]>([])
   const [showDialog, setShowDialog] = useState(false)
@@ -48,6 +50,36 @@ export default function FinalDetailPage() {
       router.push(`/drafts/${draft.id}`)
     } catch (e) {
       show('回滚失败', 'error')
+    }
+  }
+
+  // 保存发布时间
+  const handleSavePublishTime = async (publishAtUtc: string | null) => {
+    if (!selected) return
+
+    try {
+      // 直接使用 IndexedDB 更新，不通过服务器端 API
+      const { updateFinalScript } = await import('@/lib/indexeddb')
+      
+      const updates = {
+        publishAtUtc: publishAtUtc || undefined,
+        publishStatus: publishAtUtc ? 'scheduled' as const : 'unscheduled' as const
+      }
+
+      const updatedFinalScript = await updateFinalScript(selected.id, updates)
+      
+      // 更新本地状态
+      setVersions(prev => prev.map(v => 
+        v.id === selected.id 
+          ? { ...v, ...updatedFinalScript }
+          : v
+      ))
+
+      show(publishAtUtc ? '发布时间已保存' : '发布时间已清除', 'success')
+    } catch (error) {
+      console.error('Failed to save publish time:', error)
+      show(error instanceof Error ? error.message : '保存失败', 'error')
+      throw error
     }
   }
 
@@ -125,6 +157,12 @@ export default function FinalDetailPage() {
               <div className="text-sm font-semibold text-emerald-900 mb-2">行动号召</div>
               <p className="text-emerald-900/90 max-w-[72ch] break-words leading-7">{selected.cta}</p>
             </div>
+
+            {/* 发布时间管理 */}
+            <PublishCard
+              finalScript={selected}
+              onSave={handleSavePublishTime}
+            />
 
             {/* Full content */}
             {selected.content && (

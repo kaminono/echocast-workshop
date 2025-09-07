@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import TimezoneSelector from './TimezoneSelector'
 
 const navigationItems = [
   { name: '首页', href: '/' },
@@ -43,6 +44,11 @@ export default function TopNav() {
                 )
               })}
             </div>
+          </div>
+
+          {/* Right side - Timezone Selector */}
+          <div className="hidden md:block">
+            <TimezoneSelector asDropdown={true} />
           </div>
 
           {/* Mobile menu button */}

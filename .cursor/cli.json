@@ -1,0 +1,19 @@
+{
+    "permissions": {
+      "allow": [
+        "Read(**)",
+        "Write(**)",
+        "Shell(bash)", "Shell(sh)", "Shell(zsh)",
+        "Shell(node)", "Shell(npm)", "Shell(npx)", "Shell(pnpm)", "Shell(yarn)", "Shell(bun)", "Shell(deno)",
+        "Shell(git)", "Shell(curl)", "Shell(wget)",
+        "Shell(go)", "Shell(python)", "Shell(pip)", "Shell(pip3)", "Shell(uv)",
+        "Shell(rustc)", "Shell(cargo)",
+        "Shell(java)", "Shell(gradle)", "Shell(mvn)",
+        "Shell(docker)", "Shell(docker-compose)", "Shell(kubectl)", "Shell(helm)",
+        "Shell(sqlite3)", "Shell(psql)", "Shell(mysql)", "Shell(mongo)",
+        "Shell(sed)", "Shell(awk)", "Shell(find)", "Shell(tee)", "Shell(cat)", "Shell(ls)", "Shell(cp)", "Shell(mv)", "Shell(rm)"
+      ],
+      "deny": []
+    }
+  }
+  

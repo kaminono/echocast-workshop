@@ -34,10 +34,31 @@ body {
   }
   
   .nav-link-active {
-    @apply bg-primary-600 text-white;
+    @apply bg-blue-600 text-white;
   }
   
   .nav-link-inactive {
     @apply text-gray-300 hover:bg-gray-700 hover:text-white;
+  }
+
+  /* 时区选择器样式 */
+  .timezone-selector {
+    @apply relative inline-block;
+  }
+
+  .timezone-dropdown {
+    @apply absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-20;
+  }
+
+  .timezone-option {
+    @apply w-full text-left px-3 py-2 text-sm rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500;
+  }
+
+  .timezone-option-selected {
+    @apply bg-blue-50 text-blue-600;
+  }
+
+  .timezone-option-unselected {
+    @apply text-gray-700;
   }
 }

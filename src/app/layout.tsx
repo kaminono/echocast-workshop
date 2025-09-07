@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import TopNav from '@/components/TopNav'
 import { ToastProvider } from '@/components/Toast'
+import { TimezoneProvider } from '@/components/TimezoneProvider'
 import ClientBootstrap from '@/app/ClientBootstrap'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -20,13 +21,15 @@ export default function RootLayout({
   return (
     <html lang="zh">
       <body className={inter.className}>
-        <ToastProvider>
-          <ClientBootstrap />
-          <TopNav />
-          <main>
-            {children}
-          </main>
-        </ToastProvider>
+        <TimezoneProvider>
+          <ToastProvider>
+            <ClientBootstrap />
+            <TopNav />
+            <main>
+              {children}
+            </main>
+          </ToastProvider>
+        </TimezoneProvider>
       </body>
     </html>
   )

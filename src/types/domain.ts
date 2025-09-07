@@ -128,6 +128,10 @@ export interface FinalScript {
   status: 'published' | 'archived'
   /** 发布时间（ISO 字符串，可选：仅当 published） */
   publishedAt?: string
+  /** 发布时间（UTC，ISO 8601 格式，如 2025-09-05T21:00:00Z） */
+  publishAtUtc?: string
+  /** 发布状态 */
+  publishStatus?: 'unscheduled' | 'scheduled' | 'published' | 'paused'
   /** 生成溯源信息（模型/人工/规则等） */
   provenance?: {
     generator: 'ai' | 'manual' | 'hybrid'
@@ -237,4 +241,67 @@ export interface FourFields {
   bulletPoints: string[]
   /** 行动号召（单句，动词开头） */
   cta: string
+}
+
+/**
+ * 时间线查询参数
+ */
+export interface TimelineQueryParams {
+  /** 开始日期（YYYY-MM-DD） */
+  from?: string
+  /** 结束日期（YYYY-MM-DD） */
+  to?: string
+  /** 语言筛选（多选） */
+  locales?: string[]
+  /** 平台筛选（多选） */
+  platforms?: string[]
+  /** 关键词搜索（标题包含） */
+  q?: string
+  /** 排序方式 */
+  sort?: 'asc' | 'desc'
+  /** 页码 */
+  page?: number
+  /** 每页大小 */
+  pageSize?: number
+}
+
+/**
+ * 时间线项目
+ */
+export interface TimelineItem {
+  /** 定稿 ID */
+  id: string
+  /** 定稿系列 ID */
+  scriptId: string
+  /** 版本号 */
+  version: number
+  /** 标题 */
+  title: string
+  /** 语言代码 */
+  locale: string
+  /** 平台标识 */
+  platform: string
+  /** 发布时间（UTC） */
+  publishAtUtc: string
+  /** 更新时间 */
+  updatedAt?: string
+}
+
+/**
+ * 时间线响应
+ */
+export interface TimelineResponse {
+  /** 查询范围 */
+  range: {
+    from: string
+    to: string
+  }
+  /** 时间线项目列表 */
+  items: TimelineItem[]
+  /** 分页信息 */
+  page: number
+  /** 总页数 */
+  totalPages: number
+  /** 总数 */
+  total: number
 }

@@ -391,6 +391,60 @@ export async function getFinalScriptByVersion(ideaId: string, versionNumber: num
 }
 
 /**
+ * 获取所有 FinalScript
+ */
+export async function getAllFinalScripts(): Promise<FinalScript[]> {
+  const db = await getDatabase()
+  const transaction = db.transaction([DB_CONFIG.stores.finalScripts], 'readonly')
+  const store = transaction.objectStore(DB_CONFIG.stores.finalScripts)
+
+  return new Promise((resolve, reject) => {
+    const request = store.getAll()
+    
+    request.onsuccess = () => {
+      const finals = request.result.sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
+      resolve(finals)
+    }
+    request.onerror = () => reject(new Error('获取所有定稿失败'))
+  })
+}
+
+/**
+ * 更新 FinalScript
+ */
+export async function updateFinalScript(id: string, updates: Partial<Omit<FinalScript, 'id' | 'createdAt'>>): Promise<FinalScript> {
+  const db = await getDatabase()
+  const transaction = db.transaction([DB_CONFIG.stores.finalScripts], 'readwrite')
+  const store = transaction.objectStore(DB_CONFIG.stores.finalScripts)
+
+  return new Promise((resolve, reject) => {
+    const getRequest = store.get(id)
+    
+    getRequest.onsuccess = () => {
+      const existingFinal = getRequest.result
+      if (!existingFinal) {
+        reject(new Error('定稿不存在'))
+        return
+      }
+
+      const updatedFinal: FinalScript = {
+        ...existingFinal,
+        ...updates,
+        updatedAt: new Date().toISOString()
+      }
+
+      const putRequest = store.put(updatedFinal)
+      putRequest.onsuccess = () => resolve(updatedFinal)
+      putRequest.onerror = () => reject(new Error('更新定稿失败'))
+    }
+    
+    getRequest.onerror = () => reject(new Error('获取定稿失败'))
+  })
+}
+
+/**
  * 获取本地化版本列表
  */
 export async function listLocales(): Promise<LocaleVariant[]> {
