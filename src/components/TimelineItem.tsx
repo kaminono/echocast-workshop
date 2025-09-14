@@ -91,7 +91,7 @@ export default function TimelineItem({ item, showVersion = true }: TimelineItemP
       {/* 更新时间 */}
       {item.updatedAt && (
         <div className="text-sm text-gray-500">
-          更新时间：{new Date(item.updatedAt).toLocaleString('zh-CN')}
+          更新时间：{formatDateTime(item.updatedAt, timezone)}
         </div>
       )}
     </div>

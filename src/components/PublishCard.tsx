@@ -8,7 +8,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useTimezone } from './TimezoneProvider'
-import { toUtc, toLocal, isFutureTime, ALLOW_PAST_PUBLISH } from '@/lib/time'
+import { toUtc, toLocal, isFutureTime, ALLOW_PAST_PUBLISH, formatDateTime } from '@/lib/time'
 import type { FinalScript } from '@/types/domain'
 
 interface PublishCardProps {
@@ -222,7 +222,7 @@ export default function PublishCard({ finalScript, onSave, readOnly = false }: P
       {/* 最后更新时间 */}
       {finalScript.updatedAt && (
         <div className="mt-4 text-xs text-gray-500">
-          最后更新：{new Date(finalScript.updatedAt).toLocaleString('zh-CN')}
+          最后更新：{formatDateTime(finalScript.updatedAt, timezone)}
         </div>
       )}
     </div>

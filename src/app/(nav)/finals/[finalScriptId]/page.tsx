@@ -7,6 +7,8 @@ import FinalTimeline from '@/components/FinalTimeline'
 import { rollbackToVersion } from '@/lib/services/rollbackToVersion'
 import { useToast } from '@/components/Toast'
 import { formatRelativeTime } from '@/utils/format'
+import { useTimezone } from '@/components/TimezoneProvider'
+import { formatDateTime } from '@/lib/time'
 import LocaleCards from '@/components/LocaleCards'
 import LocaleGenerateDialog from '@/components/LocaleGenerateDialog'
 import * as LocaleRepo from '@/lib/repos/locale-repo'
@@ -14,6 +16,7 @@ import PublishCard from '@/components/PublishCard'
 import type { FinalScript } from '@/types/domain'
 
 export default function FinalDetailPage() {
+  const { timezone } = useTimezone()
   const params = useParams<{ finalScriptId: string }>()
   const finalScriptId = params.finalScriptId
   const router = useRouter()
@@ -115,7 +118,7 @@ export default function FinalDetailPage() {
                   <div className="text-xs text-gray-500">更新时间</div>
                   <div className="text-sm font-medium text-gray-700">{formatRelativeTime(selected.updatedAt)}</div>
                   {selected.publishedAt && (
-                    <div className="mt-1 text-xs text-gray-500">发布于 {new Date(selected.publishedAt).toLocaleString()}</div>
+                    <div className="mt-1 text-xs text-gray-500">发布于 {formatDateTime(selected.publishedAt, timezone)}</div>
                   )}
                 </div>
               </div>

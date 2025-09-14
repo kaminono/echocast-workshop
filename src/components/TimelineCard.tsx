@@ -7,6 +7,8 @@
  */
 
 import React from 'react'
+import { useTimezone } from './TimezoneProvider'
+import { formatDateTime } from '@/lib/time'
 import type { TimelineItem } from '@/types/domain'
 
 interface TimelineCardProps {
@@ -19,6 +21,7 @@ interface TimelineCardProps {
 }
 
 export default function TimelineCard({ item, onClick, isActive = false }: TimelineCardProps) {
+  const { timezone } = useTimezone()
   // 处理键盘事件
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -32,19 +35,7 @@ export default function TimelineCard({ item, onClick, isActive = false }: Timeli
     if (!utcString) return '未设置'
     
     try {
-      const date = new Date(utcString)
-      if (isNaN(date.getTime())) {
-        return '时间格式错误'
-      }
-      
-      return date.toLocaleString('zh-CN', {
-        timeZone: 'Asia/Shanghai',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
+      return formatDateTime(utcString, timezone)
     } catch {
       return '时间格式错误'
     }
@@ -94,7 +85,7 @@ export default function TimelineCard({ item, onClick, isActive = false }: Timeli
       {/* 更新时间 */}
       {item.updatedAt && (
         <div className="text-xs text-gray-500 dark:text-gray-400">
-          更新时间：{new Date(item.updatedAt).toLocaleString('zh-CN')}
+          更新时间：{formatDateTime(item.updatedAt, timezone)}
         </div>
       )}
     </div>

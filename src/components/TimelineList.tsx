@@ -12,6 +12,8 @@ import TimelineRail from './TimelineRail'
 import TimelineNode from './TimelineNode'
 import TimelineCard from './TimelineCard'
 import TimelineDayGroup from './TimelineDayGroup'
+import { useTimezone } from './TimezoneProvider'
+import { formatDate } from '@/lib/time'
 import type { TimelineItem } from '@/types/domain'
 
 interface TimelineListProps {
@@ -23,6 +25,7 @@ interface TimelineListProps {
 
 export default function TimelineList({ items, isLoading = false }: TimelineListProps) {
   const router = useRouter()
+  const { timezone } = useTimezone()
   const [activeItem, setActiveItem] = useState<string | null>(null)
 
   // 处理项目点击
@@ -41,7 +44,12 @@ export default function TimelineList({ items, isLoading = false }: TimelineListP
     const groups: Record<string, TimelineItem[]> = {}
     
     items.forEach(item => {
-      const date = new Date(item.publishAtUtc).toDateString()
+      // 使用目标时区的年月日作为分组键，保持同一天的聚合
+      const utc = new Date(item.publishAtUtc)
+      const y = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric' }).format(utc) // 2025
+      const m = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, month: '2-digit' }).format(utc) // 09
+      const d = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, day: '2-digit' }).format(utc) // 14
+      const date = `${y}-${m}-${d}`
       if (!groups[date]) {
         groups[date] = []
       }
@@ -49,16 +57,14 @@ export default function TimelineList({ items, isLoading = false }: TimelineListP
     })
     
     return groups
-  }, [items])
+  }, [items, timezone])
 
   // 格式化分组标题
-  const formatGroupTitle = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
+  const formatGroupTitle = (dateKey: string) => {
+    // dateKey 是上面构造的 YYYY-MM-DD，与时区一致
+    const [y, m, d] = dateKey.split('-').map((s) => parseInt(s, 10))
+    const date = new Date(Date.UTC(y, (m - 1), d))
+    return formatDate(date, 'zh-CN')
   }
 
   if (isLoading) {
