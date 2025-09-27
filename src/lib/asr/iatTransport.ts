@@ -163,7 +163,7 @@ export class IATTransport {
         });
 
         // 接收消息
-        this.ws.on('message', (data: WebSocket.Data) => {
+        this.ws.on('message', (data: any) => {
           try {
             const response: WSResponse = JSON.parse(data.toString());
             this.handleMessage(response);
@@ -178,7 +178,7 @@ export class IATTransport {
         });
 
         // 连接错误
-        this.ws.on('error', (error) => {
+        this.ws.on('error', (error: any) => {
           clearTimeout(timeoutId);
           this.connectionState = WSConnectionState.ERROR;
           this.logger.error('WebSocket 连接错误:', error);
@@ -194,7 +194,7 @@ export class IATTransport {
         });
 
         // 连接关闭
-        this.ws.on('close', (code, reason) => {
+        this.ws.on('close', (code: any, reason: any) => {
           clearTimeout(timeoutId);
           this.connectionState = WSConnectionState.CLOSED;
           this.logger.info(`WebSocket 连接关闭: ${code} - ${reason}`);

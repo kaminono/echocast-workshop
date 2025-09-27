@@ -15,6 +15,7 @@ export async function publishDraft(params: { ideaId: string; changeLog?: string;
   // 组装定稿输入（versionNumber 在 repo 内部分配，保证唯一）
   const finalInput = {
     ideaId: draft.ideaId,
+    finalScriptId: draft.ideaId,
     title: draft.title,
     intro: draft.intro,
     bulletPoints: draft.bulletPoints,
@@ -23,7 +24,7 @@ export async function publishDraft(params: { ideaId: string; changeLog?: string;
     status: 'published' as const,
     publishedAt: new Date().toISOString(),
     provenance: params.provenance,
-    changeLog: params.changeLog,
+    changeLog: params.changeLog ? [params.changeLog] : undefined,
   }
 
   // 并发安全：versionKey 唯一约束由 repo 层的 addFinalScript 的索引保证；若冲突则外抛错误，调用方可重试
@@ -100,7 +101,7 @@ export async function diffDraftWithFinal(params: { ideaId: string; baseVersionNu
     setIfDifferent('content', undefined, draft.content)
   }
 
-  return { base, draft, diff }
+  return { base: base ?? undefined, draft: draft ?? undefined, diff }
 }
 
 export async function diffFinalVsFinal(params: { ideaId: string; fromVersion: number; toVersion: number }): Promise<{ from?: FinalScript; to?: FinalScript; diff: Record<string, { from?: unknown; to?: unknown }> }> {

@@ -25,7 +25,7 @@ type OldLocaleVariant = {
   content: string
   status: string
   translationType: 'manual' | 'ai' | 'hybrid'
-  localization?: OldLocaleVariant['localization']
+  localization?: Record<string, unknown>
   createdAt: string | Date
   updatedAt: string | Date
 }
@@ -61,6 +61,7 @@ export async function migrateFromOldStructures(params: {
         const content = buildContentFromElements(parts)
         const migrated = await addFinalScript({
           ideaId: old.ideaId,
+          finalScriptId: old.ideaId,
           versionNumber: h.version,
           title: parts.title,
           intro: parts.intro,
@@ -69,7 +70,7 @@ export async function migrateFromOldStructures(params: {
           content,
           status: 'published',
           publishedAt: new Date(h.createdAt).toISOString(),
-          changeLog: h.changes,
+          changeLog: [h.changes],
         })
         migratedFinals.push(migrated)
       }

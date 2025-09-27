@@ -23,20 +23,33 @@ async function main() {
   }
   console.log('草稿：', draft)
 
-  const g1 = await generateStructuredDraft({ idea: { id: idea.id, title: idea.title, summary: idea.summary, rawInputText: idea.rawInputText, source: idea.source, createdAt: idea.createdAt }, draft, mode: 'normalize' })
+  const g1 = await generateStructuredDraft({
+    idea: { title: idea.title, summary: idea.summary, content: idea.content },
+    draft: {
+      title: draft.title,
+      intro: draft.intro,
+      bulletPoints: draft.bulletPoints,
+      cta: draft.cta,
+      content: draft.content,
+    },
+    mode: 'normalize',
+  })
   await DraftRepo.save({ ...draft, ...g1 })
   const v1 = await publishDraft(idea.id)
   console.log('发布 v1:', v1)
 
-  const g2 = await generateStructuredDraft({ idea: { id: idea.id, title: idea.title, summary: idea.summary, rawInputText: idea.rawInputText, source: idea.source, createdAt: idea.createdAt }, draft: { ...draft, ...g1, content: '' }, mode: 'enhance', suggestion: '强调最小投入' })
-  draft = await DraftRepo.save({ ...draft, ...g2 })
-  const v2 = await publishDraft(idea.id)
-  console.log('发布 v2:', v2)
-
-  const rolled = await rollbackToVersion(idea.id, 1)
-  console.log('回滚到 v1 草稿:', rolled)
-  const v3 = await publishDraft(idea.id)
-  console.log('再次发布 v3:', v3)
+  const g2 = await generateStructuredDraft({
+    idea: { title: idea.title, summary: idea.summary, content: idea.content },
+    draft: {
+      title: g1.title,
+      intro: g1.intro,
+      bulletPoints: g1.bulletPoints,
+      cta: g1.cta,
+      content: '',
+    },
+    mode: 'enhance',
+    suggestion: '强调最小投入',
+  })
 
   const versions = await FinalRepo.getSeriesVersions(idea.id)
   console.log('最终版本列表：', versions.map(v => v.versionNumber))

@@ -123,8 +123,6 @@ export class IATClient {
       console.log('[IAT-CLIENT] 环境检测:', typeof window !== 'undefined' ? 'BROWSER' : 'NODE');
       console.log('[IAT-CLIENT] 使用的传输层:', typeof window !== 'undefined' ? 'BrowserTransport' : 'NodeTransport');
       this.transport = createTransport(this.config);
-      // 绑定会话处理器的统一解绑函数，避免未实现 off 导致的异常
-      const unregisterAll = () => this.transport && (this.transport as any).off ? (this.transport as any).off(sessionId) : (() => { this.transport?.removeMessageHandler(sessionId); this.transport?.removeErrorHandler(sessionId); })();
       
       // 建立连接
       await this.transport.connect();

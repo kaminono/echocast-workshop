@@ -143,6 +143,7 @@ export class IATTransport {
 
       this.ws.on('error', (error: Error) => {
         clearTimeout(timeoutId);
+        const wasConnecting = this.connectionState === WSConnectionState.CONNECTING;
         this.connectionState = WSConnectionState.ERROR;
         this.logger.error('[NODE] WebSocket 连接错误:', error);
         
@@ -153,7 +154,7 @@ export class IATTransport {
         );
         
         this.handleError(iatError);
-        if (this.connectionState === WSConnectionState.CONNECTING) {
+        if (wasConnecting) {
           reject(iatError);
         }
       });
@@ -183,6 +184,7 @@ export class IATTransport {
 
       this.ws.onerror = (event: Event) => {
         clearTimeout(timeoutId);
+        const wasConnecting = this.connectionState === WSConnectionState.CONNECTING;
         this.connectionState = WSConnectionState.ERROR;
         this.logger.error('[BROWSER] WebSocket 连接错误:', event);
         
@@ -192,7 +194,7 @@ export class IATTransport {
         );
         
         this.handleError(iatError);
-        if (this.connectionState === WSConnectionState.CONNECTING) {
+        if (wasConnecting) {
           reject(iatError);
         }
       };
@@ -270,6 +272,13 @@ export class IATTransport {
   off(id: string): void {
     this.messageHandlers.delete(id);
     this.errorHandlers.delete(id);
+  }
+
+  /**
+   * 获取连接状态（与 Node 版 API 对齐）
+   */
+  getState(): WSConnectionState {
+    return this.connectionState;
   }
 
   /**
